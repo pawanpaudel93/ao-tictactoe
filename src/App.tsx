@@ -69,6 +69,48 @@ function App() {
     setIsRegistering(false);
   }
 
+  async function registerBot() {
+    setIsRegistering(true);
+    try {
+      const messageId = await message({
+        process: GAME_PROCESS,
+        tags: [{ name: "Action", value: "BotRegister" }],
+        signer: createDataItemSigner(window.arweaveWallet),
+      });
+
+      const { Messages, Output } = await result({
+        message: messageId,
+        process: GAME_PROCESS,
+      });
+
+      if (Messages.length > 0) {
+        const latestMessage = Messages[0];
+        if (latestMessage) {
+          const isRegistered = getTagByValue(latestMessage, "Registered");
+          if (isRegistered) {
+            const symbolTag = getTagByName(latestMessage, "Symbol")!;
+            setGameState((prev) => ({
+              ...prev,
+              Players: {
+                ...prev.Players,
+                [GAME_PROCESS]: symbolTag.value as "X" | "O",
+              },
+              State: Object.keys(prev.Players).length > 0 ? "PLAY" : "REGISTER",
+            }));
+            messageApi.success("Bot registered");
+          }
+        }
+      }
+
+      if (Output?.data?.output) {
+        messageApi.error(extractMessage(Output?.data?.output));
+      }
+    } catch (error) {
+      console.log(error);
+    }
+    setIsRegistering(false);
+  }
+
   async function readGameState() {
     const result = await dryrun({
       process: GAME_PROCESS,
@@ -91,7 +133,8 @@ function App() {
 
     if (results.edges.length > 0) {
       cursor.current = results.edges[results.edges.length - 1].cursor;
-      const latestResult = results.edges[0];
+      const latestResult =
+        results.edges[gameState.Players[GAME_PROCESS] ? 1 : 0];
       if (latestResult.node.Messages.length > 0) {
         const latestMessage =
           latestResult.node.Messages[latestResult.node.Messages.length - 1];
@@ -168,6 +211,8 @@ function App() {
       return () => {
         clearInterval(interval.current);
       };
+    } else {
+      if (interval.current) clearInterval(interval.current);
     }
   }, [gameState.Players]);
 
@@ -176,18 +221,29 @@ function App() {
       {contextHolder}
       <TicTacToe gameState={gameState} setGameState={setGameState} />
       {gameState.State === "REGISTER" &&
-        !gameState.Players[address as string] && (
-          <div className="flex justify-center mt-4">
+        (!gameState.Players[address as string] ? (
+          <div className="flex justify-center mt-4 gap-3">
             <Button
               // type="primary"
               onClick={register}
               loading={isRegistering}
               disabled={isRegistering}
             >
-              {isRegistering ? "Registering..." : "Register"}
+              {isRegistering ? "Registering..." : "Play"}
             </Button>
           </div>
-        )}
+        ) : (
+          <div className="flex justify-center mt-4 gap-3">
+            <Button
+              onClick={registerBot}
+              loading={isRegistering}
+              disabled={isRegistering}
+            >
+              {isRegistering ? "Registering bot..." : "Play with Bot"}
+            </Button>
+          </div>
+        ))}
+
       {gameState.State === "REGISTER" &&
         gameState.Players[address as string] && (
           <div className="flex flex-col justify-center items-center gap-1 mt-4">
