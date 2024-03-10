@@ -220,7 +220,9 @@ function App() {
     <div className="flex justify-center items-center flex-col">
       {contextHolder}
       <TicTacToe gameState={gameState} setGameState={setGameState} />
-      {gameState.State === "REGISTER" &&
+
+      {address &&
+        gameState.State === "REGISTER" &&
         (!gameState.Players[address as string] ? (
           <div className="flex justify-center mt-4 gap-3">
             <Button
@@ -243,6 +245,7 @@ function App() {
             </Button>
           </div>
         ))}
+      {!address && <div className="mt-4">Connect to Play the Game!</div>}
 
       {gameState.State === "REGISTER" &&
         gameState.Players[address as string] && (
