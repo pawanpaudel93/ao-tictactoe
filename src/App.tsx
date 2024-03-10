@@ -12,6 +12,7 @@ import { useActiveAddress } from "@arweave-wallet-kit-beta/react";
 import { GameState } from "./types";
 import { Button, message as Message } from "antd";
 import { getTagByName, getTagByValue } from "./helpers/getTag";
+import { extractMessage } from "./helpers/extractMessage";
 
 function App() {
   const address = useActiveAddress();
@@ -60,7 +61,7 @@ function App() {
       }
 
       if (Output?.data?.output) {
-        messageApi.error(Output?.data?.output);
+        messageApi.error(extractMessage(Output?.data?.output));
       }
     } catch (error) {
       console.log(error);
@@ -94,14 +95,14 @@ function App() {
       if (latestResult.node.Messages.length > 0) {
         const latestMessage =
           latestResult.node.Messages[latestResult.node.Messages.length - 1];
-        const action = latestMessage.Tags.find(
-          (tag: { name: string }) => tag.name === "Action"
-        ).value;
+        getTagByName(latestMessage, "Action");
+        const action = getTagByName(latestMessage, "Action")!.value;
         switch (action) {
           case "Play": {
-            const currentPlayer = latestMessage.Tags.find(
-              (tag: { name: string }) => tag.name === "CurrentPlayer"
-            ).value;
+            const currentPlayer = getTagByName(
+              latestMessage,
+              "CurrentPlayer"
+            )!.value;
             setGameState((prev) => ({
               ...prev,
               Board: Array(9).fill(null),
@@ -111,9 +112,7 @@ function App() {
             break;
           }
           case "Winner": {
-            const winner = latestMessage.Tags.find(
-              (tag: { name: string }) => tag.name === "Winner"
-            ).value;
+            const winner = getTagByName(latestMessage, "Winner")!.value;
             setGameState((prev) => ({
               ...prev,
               ...JSON.parse(latestMessage.Data),
@@ -138,9 +137,10 @@ function App() {
             break;
           }
           case "CurrentTurn": {
-            const currentPlayer = latestMessage.Tags.find(
-              (tag: { name: string }) => tag.name === "CurrentPlayer"
-            ).value;
+            const currentPlayer = getTagByName(
+              latestMessage,
+              "CurrentPlayer"
+            )!.value;
             setGameState((prev) => ({
               ...prev,
               CurrentPlayer: currentPlayer,

@@ -5,6 +5,7 @@ import { GAME_PROCESS } from "../helpers/constants";
 import { useActiveAddress } from "@arweave-wallet-kit-beta/react";
 import { message as Message, Spin } from "antd";
 import { getTagByName, getTagByNameValue } from "../helpers/getTag";
+import { extractMessage } from "../helpers/extractMessage";
 
 interface SquareProps {
   value: "X" | "O" | null;
@@ -90,7 +91,7 @@ export default function TicTacToe({ gameState, setGameState }: TicTacToeProps) {
     }
 
     if (Output?.data?.output) {
-      messageApi.error(Output?.data?.output);
+      messageApi.error(extractMessage(Output?.data?.output));
     }
   };
 
