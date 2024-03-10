@@ -1,6 +1,6 @@
 local json = require("json")
 
-local GameProcess = "DmwzscUB2NejQ9PZpRSaVhYRtgY6wV8_ffmGyJjWmZA"
+GameProcess = "DmwzscUB2NejQ9PZpRSaVhYRtgY6wV8_ffmGyJjWmZA"
 
 -- Function to print the current state of the board
 function printBoard(board)
