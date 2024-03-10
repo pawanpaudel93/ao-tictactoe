@@ -5,6 +5,7 @@ Board = Board or { "1", "2", "3", "4", "5", "6", "7", "8", "9" }
 Players = Players or {}
 CurrentPlayer = CurrentPlayer or ""
 State = State or "REGISTER"
+PreviousMatches = PreviousMatches or {}
 
 
 function resetState()
@@ -110,9 +111,11 @@ function makeMove(msg)
     if movePlayer(playerSymbol, position) then
         if checkWin() then
             informPlayers({ Action = "Winner", Winner = msg.From, Data = json.encode({ Board = Board }) })
+            table.insert(PreviousMatches, { Board = Board, Players = Players, Winner = msg.From, State = "Win" })
             resetState()
         elseif checkDraw() then
             informPlayers({ Action = "Draw", Data = json.encode({ Board = Board }) })
+            table.insert(PreviousMatches, { Board = Board, Players = Players, Winner = "", State = "Draw" })
             resetState()
         else
             for address, _ in pairs(Players) do
