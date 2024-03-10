@@ -114,7 +114,7 @@ function registerBot(msg)
         end
 
         ao.send({
-            Target = msg.From,
+            Target = ao.id,
             Action = "Registered",
             Symbol = symbol
         })

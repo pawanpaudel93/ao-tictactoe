@@ -21,6 +21,10 @@ function makeMove(position)
     Send({ Target = GameProcess, Action = "MakeMove", Position = position })
 end
 
+function registerBot()
+    Send({ Target = GameProcess, Action = "RegisterBot" })
+end
+
 Handlers.add(
     "GameState",
     Handlers.utils.hasMatchingTag("Action", "GameState"),
@@ -28,9 +32,10 @@ Handlers.add(
         local Data = json.decode(msg.Data)
         local playerSymbol = Data.Players[ao.id]
         if (playerSymbol ~= nil) then
-            Prompt = function()
+            function Prompt()
                 return "Player[" .. playerSymbol .. "]@aos> "
             end
+
             printBoard(Data.Board)
             if (Data.CurrentPlayer == ao.id) then
                 print("\nIt's your turn. Choose a position (1-9):\n")
@@ -46,7 +51,7 @@ Handlers.add(
     Handlers.utils.hasMatchingTag("Action", "Registered"),
     function(msg)
         print("You have registered to the game. Your symbol is " .. msg.Tags.Symbol .. "\n")
-        Prompt = function()
+        function Prompt()
             return "Player[" .. msg.Tags.Symbol .. "]@aos> "
         end
     end
