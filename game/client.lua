@@ -3,7 +3,7 @@ local json = require("json")
 GameProcess = "DmwzscUB2NejQ9PZpRSaVhYRtgY6wV8_ffmGyJjWmZA"
 
 -- Function to print the current state of the board
-function printBoard(board)
+local function printBoard(board)
     for i = 1, #board, 3 do
         print(board[i] .. " | " .. board[i + 1] .. " | " .. board[i + 2])
         if i < 7 then

@@ -1,35 +1,44 @@
 local json = require("json")
 
--- Initialize the Board as a single-dimensional array for simplicity
+-- Game state
 Board = Board or { "1", "2", "3", "4", "5", "6", "7", "8", "9" }
 Players = Players or {}
 CurrentPlayer = CurrentPlayer or ""
 State = State or "REGISTER"
 PreviousMatches = PreviousMatches or {}
 
-
+-- Possible winning conditions
 local wins = {
     { 1, 2, 3 }, { 4, 5, 6 }, { 7, 8, 9 }, -- Rows
     { 1, 4, 7 }, { 2, 5, 8 }, { 3, 6, 9 }, -- Columns
     { 1, 5, 9 }, { 3, 5, 7 }               -- Diagonals
 }
 
-function resetState()
+-- Reset game state
+local function resetState()
     Board = { "1", "2", "3", "4", "5", "6", "7", "8", "9" }
     Players = {}
     CurrentPlayer = ""
     State = "REGISTER"
 end
 
-function informPlayers(message)
+-- Inform players with message
+local function informPlayers(message)
     for address, _ in pairs(Players) do
         message.Target = address
         ao.send(message)
     end
 end
 
--- Function to check if the current player has won
-function checkWin()
+-- Set a new current player
+local function setCurrentPlayer(currentPlayer)
+    for address, _ in pairs(Players) do
+        if address ~= currentPlayer then CurrentPlayer = address end
+    end
+end
+
+-- Check if the current player has won
+local function checkWin()
     for _, win in ipairs(wins) do
         if Board[win[1]] == Board[win[2]] and Board[win[2]] == Board[win[3]] then
             return true
@@ -38,8 +47,8 @@ function checkWin()
     return false
 end
 
--- Function to check if the Board is full
-function checkDraw()
+-- Check if the Board is full
+local function checkDraw()
     for _, value in ipairs(Board) do
         if value ~= "X" and value ~= "O" then
             return false
@@ -48,16 +57,8 @@ function checkDraw()
     return true
 end
 
--- Function to update the Board with the player's move
-function movePlayer(player, position)
-    if position and position >= 1 and position <= 9 and Board[position] ~= "X" and Board[position] ~= "O" then
-        Board[position] = player
-        return true
-    end
-    return false
-end
-
-function getPlayersCount()
+-- Get current players count
+local function getPlayersCount()
     local count = 0
     for _, _ in pairs(Players) do
         count = count + 1
@@ -65,76 +66,8 @@ function getPlayersCount()
     return count
 end
 
-function register(msg)
-    local playersCount = getPlayersCount()
-    assert(State == "REGISTER", "Game is already started!")
-    assert(Players[msg.From] == nil, "Player already registered!")
-    assert(playersCount < 2, "Game already full!")
-
-
-    if (playersCount <= 2) then
-        local symbol = getPlayersCount() == 0 and "X" or "O"
-        Players[msg.From] = symbol
-
-        if CurrentPlayer == "" then CurrentPlayer = msg.From end
-
-        ao.send({
-            Target = msg.From,
-            Action = "Registered",
-            Symbol = symbol
-        })
-
-        if (getPlayersCount() == 2) then
-            State = "PLAY"
-            informPlayers({ Action = "Play", CurrentPlayer = CurrentPlayer })
-        end
-    else
-        ao.send({
-            Target = msg.From,
-            Action = "Register-Error",
-            ["Message-Id"] = msg.id,
-            Error = "Game already occupied!"
-        })
-    end
-end
-
-function registerBot(msg)
-    local playersCount = getPlayersCount()
-    assert(State == "REGISTER", "Game is already started!")
-    assert(Players[ao.id] == nil, "Player already registered!")
-    assert(playersCount < 2, "Game already full!")
-
-
-    if (playersCount <= 2) then
-        local symbol = getPlayersCount() == 0 and "X" or "O"
-        Players[ao.id] = symbol
-
-        for address, _ in pairs(Players) do
-            if address ~= ao.id then CurrentPlayer = address end
-        end
-
-        ao.send({
-            Target = ao.id,
-            Action = "Registered",
-            Symbol = symbol
-        })
-
-        if (getPlayersCount() == 2) then
-            State = "PLAY"
-            informPlayers({ Action = "Play", CurrentPlayer = CurrentPlayer })
-        end
-    else
-        ao.send({
-            Target = msg.From,
-            Action = "Register-Error",
-            ["Message-Id"] = msg.id,
-            Error = "Game already occupied!"
-        })
-    end
-end
-
--- Function to find winning or blocking moves
-function findWinningOrBlockingMove(symbol)
+-- Find winning or blocking moves for bot
+local function findWinningOrBlockingMove(symbol)
     for _, line in ipairs(wins) do
         local countSymbol = 0
         local emptyIndex = nil
@@ -153,8 +86,17 @@ function findWinningOrBlockingMove(symbol)
     return nil -- No winning or blocking move found
 end
 
--- Enhance moveBot to play to win
-function moveBot(botSymbol)
+-- Update the Board with the player's move
+local function movePlayer(player, position)
+    if position and position >= 1 and position <= 9 and Board[position] ~= "X" and Board[position] ~= "O" then
+        Board[position] = player
+        return true
+    end
+    return false
+end
+
+-- Update the Board with the bot's move
+local function moveBot(botSymbol)
     local opponentSymbol = botSymbol == "X" and "O" or "X"
 
     -- Try to win
@@ -197,7 +139,77 @@ function moveBot(botSymbol)
     return false -- No move made (board is full)
 end
 
-function makeMove(msg)
+-- Handlers
+
+-- Handler to register the game
+local function register(msg)
+    local playersCount = getPlayersCount()
+    assert(State == "REGISTER", "Game is already started!")
+    assert(Players[msg.From] == nil, "Player already registered!")
+    assert(playersCount < 2, "Game already full!")
+
+
+    if (playersCount <= 2) then
+        local symbol = getPlayersCount() == 0 and "X" or "O"
+        Players[msg.From] = symbol
+
+        if CurrentPlayer == "" then CurrentPlayer = msg.From end
+
+        ao.send({
+            Target = msg.From,
+            Action = "Registered",
+            Symbol = symbol
+        })
+
+        if (getPlayersCount() == 2) then
+            State = "PLAY"
+            informPlayers({ Action = "Play", CurrentPlayer = CurrentPlayer })
+        end
+    else
+        ao.send({
+            Target = msg.From,
+            Action = "Register-Error",
+            ["Message-Id"] = msg.id,
+            Error = "Game already occupied!"
+        })
+    end
+end
+
+-- Handler to register Bot
+local function registerBot(msg)
+    local playersCount = getPlayersCount()
+    assert(State == "REGISTER", "Game is already started!")
+    assert(Players[ao.id] == nil, "Player already registered!")
+    assert(playersCount < 2, "Game already full!")
+
+
+    if (playersCount <= 2) then
+        local symbol = getPlayersCount() == 0 and "X" or "O"
+        Players[ao.id] = symbol
+
+        setCurrentPlayer(ao.id)
+        ao.send({
+            Target = ao.id,
+            Action = "Registered",
+            Symbol = symbol
+        })
+
+        if (getPlayersCount() == 2) then
+            State = "PLAY"
+            informPlayers({ Action = "Play", CurrentPlayer = CurrentPlayer })
+        end
+    else
+        ao.send({
+            Target = msg.From,
+            Action = "Register-Error",
+            ["Message-Id"] = msg.id,
+            Error = "Game already occupied!"
+        })
+    end
+end
+
+-- Make player move to position
+local function makeMove(msg)
     assert(type(msg.Tags.Position) == 'string', 'Position is required!')
     assert(Players[msg.From] ~= nil, "Player is not registered to play!")
     assert(getPlayersCount() == 2, "Two players are not registered to play!")
@@ -217,9 +229,7 @@ function makeMove(msg)
             table.insert(PreviousMatches, { Board = Board, Players = Players, Winner = "", State = "Draw" })
             resetState()
         else
-            for address, _ in pairs(Players) do
-                if address ~= msg.From then CurrentPlayer = address end
-            end
+            setCurrentPlayer(msg.From)
             informPlayers({ Action = "CurrentTurn", Data = json.encode({ Board = Board }), CurrentPlayer = CurrentPlayer })
         end
     else
@@ -232,7 +242,8 @@ function makeMove(msg)
     end
 end
 
-function makeBotMove(msg)
+-- Make bot move to position
+local function makeBotMove(msg)
     assert(Players[ao.id] ~= nil, "Bot is not registered to play!")
     assert(getPlayersCount() == 2, "Two players are not registered to play!")
     assert(ao.id == CurrentPlayer, "This is not bot turn!")
@@ -250,9 +261,7 @@ function makeBotMove(msg)
             table.insert(PreviousMatches, { Board = Board, Players = Players, Winner = "", State = "Draw" })
             resetState()
         else
-            for address, _ in pairs(Players) do
-                if address ~= ao.id then CurrentPlayer = address end
-            end
+            setCurrentPlayer(ao.id)
             informPlayers({ Action = "CurrentTurn", Data = json.encode({ Board = Board }), CurrentPlayer = CurrentPlayer })
         end
     else
@@ -265,7 +274,8 @@ function makeBotMove(msg)
     end
 end
 
-function getGameState(msg)
+-- Get Game state
+local function getGameState(msg)
     local GameState = json.encode({
         State = State,
         Board = Board,
