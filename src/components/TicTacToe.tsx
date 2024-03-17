@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { GameState } from "../types";
 import { connect, createDataItemSigner } from "@permaweb/aoconnect";
-import { GAME_PROCESS } from "../helpers/constants";
 import { useActiveAddress } from "@arweave-wallet-kit-beta/react";
 import { message as Message, Spin } from "antd";
-import { getTagByName, getTagByNameValue } from "../helpers/getTag";
-import { extractMessage } from "../helpers/extractMessage";
+import { getTagByName, getTagByNameValue } from "@/helpers/getTag";
+import { extractMessage } from "@/helpers/extractMessage";
+import { useParams } from "react-router-dom";
 
 interface SquareProps {
   value: "X" | "O" | null;
@@ -47,6 +47,7 @@ export default function TicTacToe({ gameState, setGameState }: TicTacToeProps) {
   const [squares, setSquares] =
     useState<Array<"X" | "O" | null>>(initialSquares);
   const { result, message } = connect();
+  const { processId } = useParams() as { processId: string };
 
   const handleClick = async (index: number) => {
     const newSquares = [...squares];
@@ -55,7 +56,7 @@ export default function TicTacToe({ gameState, setGameState }: TicTacToeProps) {
     }
 
     const messageId = await message({
-      process: GAME_PROCESS,
+      process: processId,
       tags: [
         { name: "Action", value: "MakeMove" },
         { name: "Position", value: (index + 1).toString() },
@@ -65,10 +66,8 @@ export default function TicTacToe({ gameState, setGameState }: TicTacToeProps) {
 
     const { Messages, Output } = await result({
       message: messageId,
-      process: GAME_PROCESS,
+      process: processId,
     });
-
-    console.log({ Messages, Output });
 
     if (Messages.length > 0) {
       const latestMessage = Messages[0];
