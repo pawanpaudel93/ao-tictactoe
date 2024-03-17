@@ -164,7 +164,11 @@ export default function Game() {
               CurrentPlayer: "",
             }));
             messageApi.info(
-              address === winner ? "Congrats, you won!" : "Sorry, you lost!"
+              winner === address
+                ? "Congrats, you won!"
+                : gameState.Players[address as string]
+                ? "Sorry, you lost!"
+                : `${gameState.Players[winner]} won!`
             );
             break;
           }

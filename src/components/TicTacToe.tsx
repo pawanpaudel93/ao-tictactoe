@@ -73,8 +73,14 @@ export default function TicTacToe({ gameState, setGameState }: TicTacToeProps) {
       const latestMessage = Messages[0];
       if (latestMessage) {
         if (getTagByNameValue(latestMessage, "Action", "Winner")) {
-          const isWinner = getTagByNameValue(latestMessage, "Winner", address);
-          messageApi.info(isWinner ? "Congrats, you won!" : "Sorry, you lost!");
+          const winner = getTagByName(latestMessage, "Winner")?.value as string;
+          messageApi.info(
+            winner === address
+              ? "Congrats, you won!"
+              : gameState.Players[address]
+              ? "Sorry, you lost!"
+              : `${gameState.Players[winner]} won!`
+          );
         } else if (getTagByNameValue(latestMessage, "Action", "Draw")) {
           messageApi.info("The game ended in a draw!");
         } else if (getTagByNameValue(latestMessage, "Action", "CurrentTurn")) {
