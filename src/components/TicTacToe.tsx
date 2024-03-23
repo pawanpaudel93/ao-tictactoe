@@ -10,14 +10,18 @@ import { useParams } from "react-router-dom";
 interface SquareProps {
   value: "X" | "O" | null;
   onClick: () => Promise<void>;
+  isWinningSquare: boolean;
 }
 
-const Square = ({ value, onClick }: SquareProps) => {
+const Square = ({ value, onClick, isWinningSquare }: SquareProps) => {
   const [isLoading, setIsLoading] = useState(false);
+  const squareClass = `w-24 h-24 bg-gray-200 flex items-center justify-center text-4xl font-bold rounded-sm border border-gray-700 ${
+    isWinningSquare ? "bg-green-500" : "hover:bg-gray-300"
+  }`;
 
   return (
     <button
-      className="w-24 h-24 bg-gray-200 flex items-center justify-center text-4xl font-bold rounded-sm hover:bg-gray-300 border border-gray-700"
+      className={squareClass}
       onClick={async () => {
         if (isLoading) return;
         setIsLoading(true);
@@ -40,14 +44,44 @@ interface TicTacToeProps {
   setGameState: React.Dispatch<React.SetStateAction<GameState>>;
 }
 
+const calculateWinner = (squares: Array<"X" | "O" | null>) => {
+  const lines = [
+    [0, 1, 2],
+    [3, 4, 5],
+    [6, 7, 8],
+    [0, 3, 6],
+    [1, 4, 7],
+    [2, 5, 8],
+    [0, 4, 8],
+    [2, 4, 6],
+  ];
+  for (let i = 0; i < lines.length; i++) {
+    const [a, b, c] = lines[i];
+    if (squares[a] && squares[a] === squares[b] && squares[a] === squares[c]) {
+      return lines[i];
+    }
+  }
+  return null;
+};
+
 export default function TicTacToe({ gameState, setGameState }: TicTacToeProps) {
   const address = useActiveAddress();
   const [messageApi, contextHolder] = Message.useMessage();
   const initialSquares: Array<"X" | "O" | null> = Array(9).fill(null);
   const [squares, setSquares] =
     useState<Array<"X" | "O" | null>>(initialSquares);
+  const [winningSquares, setWinningSquares] = useState(new Set<number>());
   const { result, message } = connect();
   const { processId } = useParams() as { processId: string };
+
+  const checkWin = () => {
+    const winnerLine = calculateWinner(gameState.Board);
+    if (winnerLine) {
+      setWinningSquares(new Set(winnerLine));
+    } else {
+      setWinningSquares(new Set());
+    }
+  };
 
   const handleClick = async (index: number) => {
     const newSquares = [...squares];
@@ -58,7 +92,7 @@ export default function TicTacToe({ gameState, setGameState }: TicTacToeProps) {
     const messageId = await message({
       process: processId,
       tags: [
-        { name: "Action", value: "MakeMove" },
+        { name: "Action", value: "Make-Move" },
         { name: "Position", value: (index + 1).toString() },
       ],
       signer: createDataItemSigner(window.arweaveWallet),
@@ -82,12 +116,16 @@ export default function TicTacToe({ gameState, setGameState }: TicTacToeProps) {
               : `${gameState.Players[winner]} won!`
           );
         } else if (getTagByNameValue(latestMessage, "Action", "Draw")) {
-          messageApi.info("The game ended in a draw!");
-        } else if (getTagByNameValue(latestMessage, "Action", "CurrentTurn")) {
-          const currentPlayerTag = getTagByName(latestMessage, "CurrentPlayer");
+          messageApi.info("The game ended in a Draw!");
+        } else if (getTagByNameValue(latestMessage, "Action", "Current-Turn")) {
+          const currentPlayer = getTagByName(latestMessage, "Current-Player")
+            ?.value as string;
+
           setGameState((prev) => ({
             ...prev,
-            CurrentPlayer: currentPlayerTag?.value as string,
+            CurrentPlayer: currentPlayer,
+            ...JSON.parse(latestMessage.Data),
+            State: "PLAY",
           }));
         }
       }
@@ -106,6 +144,7 @@ export default function TicTacToe({ gameState, setGameState }: TicTacToeProps) {
         square === "X" || square === "O" ? square : null
       )
     );
+    checkWin();
   }, [gameState.Board]);
 
   return (
@@ -116,6 +155,7 @@ export default function TicTacToe({ gameState, setGameState }: TicTacToeProps) {
           key={index}
           value={value}
           onClick={async () => handleClick(index)}
+          isWinningSquare={winningSquares.has(index)}
         />
       ))}
     </div>

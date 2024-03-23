@@ -18,16 +18,16 @@ function register()
 end
 
 function makeMove(position)
-    Send({ Target = GameProcess, Action = "MakeMove", Position = position })
+    Send({ Target = GameProcess, Action = "Make-Move", Position = position })
 end
 
 function registerBot()
-    Send({ Target = GameProcess, Action = "RegisterBot" })
+    Send({ Target = GameProcess, Action = "Register-Bot" })
 end
 
 Handlers.add(
     "GameState",
-    Handlers.utils.hasMatchingTag("Action", "GameState"),
+    Handlers.utils.hasMatchingTag("Action", "Game-State"),
     function(msg)
         local Data = json.decode(msg.Data)
         local playerSymbol = Data.Players[ao.id]
@@ -93,7 +93,7 @@ Handlers.add(
     function(msg)
         printBoard({ "1", "2", "3", "4", "5", "6", "7", "8", "9" })
         print("\nThe game has started.\n")
-        if (msg.Tags.CurrentPlayer == ao.id) then
+        if (msg.Tags["Current-Player"] == ao.id) then
             print("It's your turn. Choose a position (1-9):\n")
         else
             print("It's your opponent turn.\n")
@@ -121,11 +121,11 @@ Handlers.add(
 
 Handlers.add(
     "CurrentTurn",
-    Handlers.utils.hasMatchingTag("Action", "CurrentTurn"),
+    Handlers.utils.hasMatchingTag("Action", "Current-Turn"),
     function(msg)
         local Data = json.decode(msg.Data)
         printBoard(Data.Board)
-        if (msg.Tags.CurrentPlayer == ao.id) then
+        if (msg.Tags["Current-Player"] == ao.id) then
             print("\nIt's your turn. Choose a position (1-9):\n")
         else
             print("\nIt's your opponent turn.\n")
@@ -133,4 +133,4 @@ Handlers.add(
     end
 )
 
-Send({ Target = GameProcess, Action = "GetGameState" })
+Send({ Target = GameProcess, Action = "Get-Game-State" })

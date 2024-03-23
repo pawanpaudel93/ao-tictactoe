@@ -3,7 +3,6 @@ import {
   result,
   message,
   dryrun,
-  connect,
 } from "@permaweb/aoconnect";
 import { useEffect, useRef, useState } from "react";
 import TicTacToe from "@/components/TicTacToe";
@@ -16,7 +15,6 @@ import { useParams } from "react-router-dom";
 
 export default function Game() {
   const address = useActiveAddress();
-  const cursor = useRef(null);
   const interval = useRef<number>();
   const [messageApi, contextHolder] = Message.useMessage();
   const [isRegistering, setIsRegistering] = useState(false);
@@ -25,6 +23,7 @@ export default function Game() {
     CurrentPlayer: "",
     Players: {},
     State: "REGISTER",
+    Winner: "",
   });
   const { processId } = useParams() as { processId: string };
 
@@ -47,12 +46,12 @@ export default function Game() {
         if (latestMessage) {
           const isRegistered = getTagByValue(latestMessage, "Registered");
           if (isRegistered) {
-            const symbolTag = getTagByName(latestMessage, "Symbol")!;
+            const symbol = getTagByName(latestMessage, "Symbol")!.value;
             setGameState((prev) => ({
               ...prev,
               Players: {
                 ...prev.Players,
-                [address as string]: symbolTag.value as "X" | "O",
+                [address as string]: symbol as "X" | "O",
               },
               State: Object.keys(prev.Players).length > 0 ? "PLAY" : "REGISTER",
             }));
@@ -75,7 +74,7 @@ export default function Game() {
     try {
       const messageId = await message({
         process: processId,
-        tags: [{ name: "Action", value: "RegisterBot" }],
+        tags: [{ name: "Action", value: "Register-Bot" }],
         signer: createDataItemSigner(window.arweaveWallet),
       });
 
@@ -89,14 +88,14 @@ export default function Game() {
         if (latestMessage) {
           const isRegistered = getTagByValue(latestMessage, "Registered");
           if (isRegistered) {
-            const symbolTag = getTagByName(latestMessage, "Symbol")!;
+            const symbol = getTagByName(latestMessage, "Symbol")!.value;
             setGameState((prev) => ({
               ...prev,
               Players: {
                 ...prev.Players,
-                [processId]: symbolTag.value as "X" | "O",
+                [processId]: symbol as "X" | "O",
               },
-              State: Object.keys(prev.Players).length > 0 ? "PLAY" : "REGISTER",
+              State: "PLAY",
             }));
             messageApi.success("Bot registered");
           }
@@ -115,7 +114,7 @@ export default function Game() {
   async function readGameState() {
     const result = await dryrun({
       process: processId,
-      tags: [{ name: "Action", value: "GetGameState" }],
+      tags: [{ name: "Action", value: "Get-Game-State" }],
     });
     setGameState((prevState) => ({
       ...prevState,
@@ -124,80 +123,7 @@ export default function Game() {
   }
 
   async function checkLive() {
-    const params = {
-      process: processId,
-      cursor: cursor.current,
-      limit: 10,
-      sort: "DESC",
-    };
-    const results = await connect().results(params);
-
-    if (results.edges.length > 0) {
-      cursor.current = results.edges[results.edges.length - 1].cursor;
-      const latestResult = results.edges[gameState.Players[processId] ? 1 : 0];
-      if (latestResult.node.Messages.length > 0) {
-        const latestMessage =
-          latestResult.node.Messages[latestResult.node.Messages.length - 1];
-        getTagByName(latestMessage, "Action");
-        const action = getTagByName(latestMessage, "Action")!.value;
-        switch (action) {
-          case "Play": {
-            const currentPlayer = getTagByName(
-              latestMessage,
-              "CurrentPlayer"
-            )!.value;
-            setGameState((prev) => ({
-              ...prev,
-              Board: Array(9).fill(null),
-              CurrentPlayer: currentPlayer,
-              State: "PLAY",
-            }));
-            break;
-          }
-          case "Winner": {
-            const winner = getTagByName(latestMessage, "Winner")!.value;
-            setGameState((prev) => ({
-              ...prev,
-              ...JSON.parse(latestMessage.Data),
-              State: "REGISTER",
-              Players: {},
-              CurrentPlayer: "",
-            }));
-            messageApi.info(
-              winner === address
-                ? "Congrats, you won!"
-                : gameState.Players[address as string]
-                ? "Sorry, you lost!"
-                : `${gameState.Players[winner]} won!`
-            );
-            break;
-          }
-          case "Draw": {
-            setGameState((prev) => ({
-              ...prev,
-              ...JSON.parse(latestMessage.Data),
-              State: "REGISTER",
-              Players: {},
-              CurrentPlayer: "",
-            }));
-            messageApi.info("The game ended in Draw!");
-            break;
-          }
-          case "CurrentTurn": {
-            const currentPlayer = getTagByName(
-              latestMessage,
-              "CurrentPlayer"
-            )!.value;
-            setGameState((prev) => ({
-              ...prev,
-              CurrentPlayer: currentPlayer,
-              ...JSON.parse(latestMessage.Data),
-            }));
-            break;
-          }
-        }
-      }
-    }
+    readGameState();
   }
 
   useEffect(() => {
@@ -205,17 +131,14 @@ export default function Game() {
   }, []);
 
   useEffect(() => {
-    if (gameState.State === "PLAY") {
-      if (interval.current) clearInterval(interval.current);
-      interval.current = setInterval(() => {
-        checkLive();
-      }, 2000);
-      return () => {
-        clearInterval(interval.current);
-      };
-    } else {
-      if (interval.current) clearInterval(interval.current);
-    }
+    if (interval.current) clearInterval(interval.current);
+    interval.current = setInterval(() => {
+      checkLive();
+    }, 2000);
+
+    return () => {
+      clearInterval(interval.current);
+    };
   }, [gameState.State]);
 
   return (
@@ -280,7 +203,14 @@ export default function Game() {
           </div>
         )}
 
-      <div className="flex flex-col justify-center items-center mt-8 gap-1">
+      {gameState.Winner && (
+        <div className="flex mt-8 flex-col items-center">
+          <span className="font-bold mb-2">Winner</span>
+          {gameState.Winner === address ? "You won!" : gameState.Winner}
+        </div>
+      )}
+
+      <div className="flex flex-col justify-center items-center mt-4 gap-1">
         <span className="mb-2 font-bold">Current Players</span>
         {Object.entries(gameState.Players).length > 0 ? (
           Object.entries(gameState.Players).map(([playerAddress, symbol]) => (

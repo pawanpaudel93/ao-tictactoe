@@ -6,6 +6,7 @@ Players = Players or {}
 CurrentPlayer = CurrentPlayer or ""
 State = State or "REGISTER"
 PreviousMatches = PreviousMatches or {}
+Winner = Winner or ""
 
 -- Possible winning conditions
 local wins = {
@@ -14,12 +15,18 @@ local wins = {
     { 1, 5, 9 }, { 3, 5, 7 }               -- Diagonals
 }
 
--- Reset game state
-local function resetState()
-    Board = { "1", "2", "3", "4", "5", "6", "7", "8", "9" }
+local function finishGame(winner)
     Players = {}
     CurrentPlayer = ""
     State = "REGISTER"
+    Winner = winner
+end
+
+-- Reset game state
+local function startGame()
+    Board = { "1", "2", "3", "4", "5", "6", "7", "8", "9" }
+    Winner = ""
+    State = "PLAY"
 end
 
 -- Inform players with message
@@ -162,8 +169,8 @@ local function register(msg)
         })
 
         if (getPlayersCount() == 2) then
-            State = "PLAY"
-            informPlayers({ Action = "Play", CurrentPlayer = CurrentPlayer })
+            startGame()
+            informPlayers({ Action = "Play", ["Current-Player"] = CurrentPlayer, Symbol = symbol })
         end
     else
         ao.send({
@@ -195,8 +202,8 @@ local function registerBot(msg)
         })
 
         if (getPlayersCount() == 2) then
-            State = "PLAY"
-            informPlayers({ Action = "Play", CurrentPlayer = CurrentPlayer })
+            startGame()
+            informPlayers({ Action = "Play", ["Current-Player"] = CurrentPlayer, Symbol = symbol })
         end
     else
         ao.send({
@@ -223,14 +230,19 @@ local function makeMove(msg)
         if checkWin() then
             informPlayers({ Action = "Winner", Winner = msg.From, Data = json.encode({ Board = Board }) })
             table.insert(PreviousMatches, { Board = Board, Players = Players, Winner = msg.From, State = "Win" })
-            resetState()
+            finishGame(msg.From)
         elseif checkDraw() then
             informPlayers({ Action = "Draw", Data = json.encode({ Board = Board }) })
             table.insert(PreviousMatches, { Board = Board, Players = Players, Winner = "", State = "Draw" })
-            resetState()
+            finishGame("")
         else
             setCurrentPlayer(msg.From)
-            informPlayers({ Action = "CurrentTurn", Data = json.encode({ Board = Board }), CurrentPlayer = CurrentPlayer })
+            informPlayers({
+                Action = "Current-Turn",
+                Data = json.encode({ Board = Board }),
+                ["Current-Player"] =
+                    CurrentPlayer
+            })
         end
     else
         ao.send({
@@ -255,14 +267,18 @@ local function makeBotMove(msg)
         if checkWin() then
             informPlayers({ Action = "Winner", Winner = ao.id, Data = json.encode({ Board = Board }) })
             table.insert(PreviousMatches, { Board = Board, Players = Players, Winner = ao.id, State = "Win" })
-            resetState()
+            finishGame(ao.id)
         elseif checkDraw() then
             informPlayers({ Action = "Draw", Data = json.encode({ Board = Board }) })
             table.insert(PreviousMatches, { Board = Board, Players = Players, Winner = "", State = "Draw" })
-            resetState()
+            finishGame("")
         else
             setCurrentPlayer(ao.id)
-            informPlayers({ Action = "CurrentTurn", Data = json.encode({ Board = Board }), CurrentPlayer = CurrentPlayer })
+            informPlayers({
+                Action = "Current-Turn",
+                Data = json.encode({ Board = Board }),
+                ["Current-Player"] = CurrentPlayer
+            })
         end
     else
         ao.send({
@@ -280,19 +296,20 @@ local function getGameState(msg)
         State = State,
         Board = Board,
         Players = Players,
-        CurrentPlayer = CurrentPlayer
+        CurrentPlayer = CurrentPlayer,
+        Winner = Winner
     })
     ao.send({
         Target = msg.From,
-        Action = "GameState",
+        Action = "Game-State",
         Data = GameState
     })
 end
 
 Handlers.add("Register", Handlers.utils.hasMatchingTag("Action", "Register"), register)
-Handlers.add("RegisterBot", Handlers.utils.hasMatchingTag("Action", "RegisterBot"), registerBot)
-Handlers.add("MakeMove", Handlers.utils.hasMatchingTag("Action", "MakeMove"), makeMove)
+Handlers.add("RegisterBot", Handlers.utils.hasMatchingTag("Action", "Register-Bot"), registerBot)
+Handlers.add("MakeMove", Handlers.utils.hasMatchingTag("Action", "Make-Move"), makeMove)
 Handlers.add("MakeBotMove", function(msg)
-    return msg.Tags.Action == "CurrentTurn" and msg.Tags.CurrentPlayer == ao.id
+    return msg.Tags.Action == "Current-Turn" and msg.Tags["Current-Player"] == ao.id
 end, makeBotMove)
-Handlers.add("GetGameState", Handlers.utils.hasMatchingTag("Action", "GetGameState"), getGameState)
+Handlers.add("GetGameState", Handlers.utils.hasMatchingTag("Action", "Get-Game-State"), getGameState)

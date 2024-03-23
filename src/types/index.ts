@@ -3,4 +3,5 @@ export interface GameState {
   CurrentPlayer: string;
   Players: { [address: string]: "X" | "O" };
   State: "REGISTER" | "PLAY";
+  Winner: string;
 }
