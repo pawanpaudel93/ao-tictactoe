@@ -142,7 +142,7 @@ export default function Game() {
   }, [gameState.State]);
 
   return (
-    <div className="flex justify-center items-center flex-col">
+    <div className="flex justify-center items-center flex-col mt-12">
       {contextHolder}
       <TicTacToe gameState={gameState} setGameState={setGameState} />
 
@@ -203,10 +203,14 @@ export default function Game() {
           </div>
         )}
 
-      {gameState.Winner && (
+      {Object.keys(gameState.Players).length === 0 && (
         <div className="flex mt-8 flex-col items-center">
-          <span className="font-bold mb-2">Winner</span>
-          {gameState.Winner === address ? "You won!" : gameState.Winner}
+          <span className="font-bold mb-2">Result</span>
+          {gameState.Winner &&
+            (gameState.Winner === address
+              ? "You won!"
+              : `${gameState.Winner} won!`)}
+          {gameState.Board.includes("X") && gameState.Winner === "" && "Draw"}
         </div>
       )}
 
