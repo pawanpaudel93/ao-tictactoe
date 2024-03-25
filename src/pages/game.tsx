@@ -95,6 +95,7 @@ export default function Game() {
                 ...prev.Players,
                 [processId]: symbol as "X" | "O",
               },
+              Board: Array(9).fill(null),
               State: "PLAY",
             }));
             messageApi.success("Bot registered");
@@ -122,23 +123,15 @@ export default function Game() {
     }));
   }
 
-  async function checkLive() {
-    readGameState();
-  }
-
   useEffect(() => {
     readGameState();
   }, []);
 
   useEffect(() => {
     if (interval.current) clearInterval(interval.current);
-    interval.current = setInterval(() => {
-      checkLive();
-    }, 2000);
+    interval.current = setInterval(() => readGameState(), 2000);
 
-    return () => {
-      clearInterval(interval.current);
-    };
+    return () => clearInterval(interval.current);
   }, [gameState.State]);
 
   return (
@@ -209,6 +202,8 @@ export default function Game() {
           {gameState.Winner &&
             (gameState.Winner === address
               ? "You won!"
+              : gameState.Winner === processId
+              ? "Bot won!"
               : `${gameState.Winner} won!`)}
           {gameState.Board.includes("X") && gameState.Winner === "" && "Draw"}
         </div>
